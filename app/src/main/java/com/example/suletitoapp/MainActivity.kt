@@ -576,18 +576,32 @@ class MainActivity : ComponentActivity() {
         codigoEnviado.value = false
 
         // Formatear número si es necesario
-        val formattedPhone = if (phoneNumber.startsWith("+591")) {
-            phoneNumber
-        } else if (phoneNumber.startsWith("591")) {
-            "+$phoneNumber"
-        } else if (phoneNumber.length == 8) {
-            "+591$phoneNumber"
-        } else {
-            phoneNumber
+//        val formattedPhone = if (phoneNumber.startsWith("+591")) {
+//            phoneNumber
+//        } else if (phoneNumber.startsWith("591")) {
+//            "+$phoneNumber"
+//        } else if (phoneNumber.length == 8) {
+//            "+591$phoneNumber"
+//        } else {
+//            phoneNumber
+//        }
+
+        val formattedPhone = when {
+            phoneNumber.startsWith("+591") -> phoneNumber
+            phoneNumber.startsWith("591") -> "+$phoneNumber"
+            phoneNumber.length == 8 -> "+591$phoneNumber"
+            else -> phoneNumber
+        }
+
+        Log.d("AUTH", "Enviando código a: $formattedPhone")
+
+        val firebaseAuth = FirebaseAuth.getInstance()
+        firebaseAuth.firebaseAuthSettings.apply {
+            setAppVerificationDisabledForTesting(false)
         }
 
         val options = PhoneAuthOptions.newBuilder(auth)
-            .setPhoneNumber(phoneNumber)
+            .setPhoneNumber(formattedPhone)
             .setTimeout(60L, TimeUnit.SECONDS)
             .setActivity(this)
             .setCallbacks(callbacks)
