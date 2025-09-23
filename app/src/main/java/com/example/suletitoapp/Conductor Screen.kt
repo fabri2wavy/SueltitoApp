@@ -31,7 +31,7 @@ fun ConductorScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text("¡Bienvenido Conductor!",
+                    Text("¡Bienvenido Maestrito!",
                         fontWeight = FontWeight.Bold
                     )
                 }

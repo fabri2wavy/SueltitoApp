@@ -54,6 +54,23 @@ import com.google.firebase.database.FirebaseDatabase
 import com.example.suletitoapp.model.Usuario
 import androidx.compose.runtime.LaunchedEffect
 import java.util.Locale
+import androidx.compose.material.icons.filled.DirectionsBus
+import androidx.compose.material.icons.filled.LocalTaxi
+import androidx.compose.material3.Switch
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.ui.text.style.TextAlign
 
 
 class MainActivity : ComponentActivity() {
@@ -213,13 +230,79 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     "nfc_pago" -> {
+                        TransportSelectionScreen(
+                            onSelectMinibus = {
+                                pantallaActual.value = "minibus_pago"
+                            },
+                            onSelectTrufi = {
+                                pantallaActual.value = "trufi_pago"
+                            },
+                            onSelectTaxi = {
+                                pantallaActual.value = "taxi_pago"
+                            },
+                            onCancelar = {
+                                pantallaActual.value = "principal"
+                            }
+                        )
+                    }
+                    "minibus_pago" -> {
                         usuarioActual.value?.let { usuario ->
-
                             if (debeActualizarSaldo.value) {
                                 usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
                                 debeActualizarSaldo.value = false
                             }
 
+                            MinibusPaymentScreen(
+                                pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
+                                saldoActual = usuario.saldo,
+                                onPagar = { monto ->
+                                    iniciarPagoNFC(monto, usuario)
+                                },
+                                onCancelar = {
+                                    nfcReadMode.value = false
+                                    isProcessingPayment.value = false
+                                    nfcMessage.value = ""
+                                    pantallaActual.value = "nfc_pago"
+                                },
+                                isProcessing = isProcessingPayment.value,
+                                mensaje = nfcMessage.value
+                            )
+                        }
+                    }
+
+                    "trufi_pago" -> {
+                        usuarioActual.value?.let { usuario ->
+                            if (debeActualizarSaldo.value) {
+                                usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
+                                debeActualizarSaldo.value = false
+                            }
+
+                            TrufiPaymentScreen(
+                                pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
+                                saldoActual = usuario.saldo,
+                                onPagar = { monto ->
+                                    iniciarPagoNFC(monto, usuario)
+                                },
+                                onCancelar = {
+                                    nfcReadMode.value = false
+                                    isProcessingPayment.value = false
+                                    nfcMessage.value = ""
+                                    pantallaActual.value = "nfc_pago"
+                                },
+                                isProcessing = isProcessingPayment.value,
+                                mensaje = nfcMessage.value
+                            )
+                        }
+                    }
+
+                    "taxi_pago" -> {
+                        usuarioActual.value?.let { usuario ->
+                            if (debeActualizarSaldo.value) {
+                                usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
+                                debeActualizarSaldo.value = false
+                            }
+
+                            // Usar la pantalla original NFCPagoScreen para taxi
                             NFCPagoScreen(
                                 pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
                                 saldoActual = usuario.saldo,
@@ -230,12 +313,11 @@ class MainActivity : ComponentActivity() {
                                     nfcReadMode.value = false
                                     isProcessingPayment.value = false
                                     nfcMessage.value = ""
-                                    pantallaActual.value = "principal"
+                                    pantallaActual.value = "nfc_pago"
                                 },
                                 isProcessing = isProcessingPayment.value,
-                                mensaje = nfcMessage.value,
-
-                                )
+                                mensaje = nfcMessage.value
+                            )
                         }
                     }
                     "historial_pasajero" -> {
@@ -923,4 +1005,221 @@ fun LoginScreen(
     }
 }
 
-
+//@Composable
+//fun MinibusPaymentScreen(
+//    pasajeroNombre: String,
+//    saldoActual: Double,
+//    onPagar: (Double) -> Unit,
+//    onCancelar: () -> Unit,
+//    isProcessing: Boolean = false,
+//    mensaje: String = ""
+//) {
+//    var tarifaPreferencial by remember { mutableStateOf(false) }
+//
+//    // Tarifas normales y preferenciales
+//    val pasajeCorto = if (tarifaPreferencial) 2.0 else 2.4
+//    val pasajeLargo = if (tarifaPreferencial) 2.60 else 3.0
+//
+//    Scaffold(
+//        topBar = {
+//            CenterAlignedTopAppBar(
+//                title = { Text("Pago Minibus", style = MaterialTheme.typography.titleLarge) },
+//                navigationIcon = {
+//                    IconButton(onClick = onCancelar) {
+//                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+//                    }
+//                }
+//            )
+//        }
+//    ) { padding ->
+//        Column(
+//            modifier = Modifier
+//                .padding(padding)
+//                .padding(24.dp)
+//                .fillMaxSize(),
+//            verticalArrangement = Arrangement.spacedBy(20.dp),
+//            horizontalAlignment = Alignment.CenterHorizontally
+//        ) {
+//
+//            // Información del pasajero
+//            Card(
+//                modifier = Modifier.fillMaxWidth(),
+//                elevation = CardDefaults.cardElevation(4.dp)
+//            ) {
+//                Column(
+//                    modifier = Modifier.padding(16.dp)
+//                ) {
+//                    Text(
+//                        text = "Pasajero: $pasajeroNombre",
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant
+//                    )
+//                    Spacer(modifier = Modifier.height(8.dp))
+//                    Text(
+//                        text = "Saldo disponible: Bs. $saldoActual",
+//                        style = MaterialTheme.typography.titleMedium.copy(
+//                            color = MaterialTheme.colorScheme.primary
+//                        )
+//                    )
+//                }
+//            }
+//
+//            // Switch para tarifa preferencial
+//            Card(
+//                modifier = Modifier.fillMaxWidth(),
+//                colors = CardDefaults.cardColors(
+//                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+//                )
+//            ) {
+//                Row(
+//                    modifier = Modifier
+//                        .padding(16.dp)
+//                        .fillMaxWidth(),
+//                    horizontalArrangement = Arrangement.SpaceBetween,
+//                    verticalAlignment = Alignment.CenterVertically
+//                ) {
+//                    Column {
+//                        Text(
+//                            text = "Tarifa Preferencial",
+//                            style = MaterialTheme.typography.titleMedium,
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant
+//                        )
+//                        Text(
+//                            text = if (tarifaPreferencial) "Activada" else "Desactivada",
+//                            style = MaterialTheme.typography.bodySmall,
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant
+//                        )
+//                    }
+//                    Switch(
+//                        checked = tarifaPreferencial,
+//                        onCheckedChange = { tarifaPreferencial = it },
+//                        enabled = !isProcessing
+//                    )
+//                }
+//            }
+//
+//            // Botones de pago
+//            Column(
+//                modifier = Modifier.fillMaxWidth(),
+//                verticalArrangement = Arrangement.spacedBy(12.dp)
+//            ) {
+//                // Botón Pasaje Corto
+//                Button(
+//                    onClick = { onPagar(pasajeCorto) },
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(80.dp),
+//                    enabled = !isProcessing && saldoActual >= pasajeCorto,
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = MaterialTheme.colorScheme.primary
+//                    )
+//                ) {
+//                    if (isProcessing) {
+//                        CircularProgressIndicator(
+//                            modifier = Modifier.size(24.dp),
+//                            strokeWidth = 2.dp,
+//                            color = MaterialTheme.colorScheme.onPrimary
+//                        )
+//                    } else {
+//                        Column(
+//                            horizontalAlignment = Alignment.CenterHorizontally
+//                        ) {
+//                            Text(
+//                                text = "PASAJE CORTO",
+//                                style = MaterialTheme.typography.titleMedium,
+//                                color = MaterialTheme.colorScheme.onPrimary
+//                            )
+//                            Text(
+//                                text = "Bs. $pasajeCorto",
+//                                style = MaterialTheme.typography.titleLarge,
+//                                fontWeight = FontWeight.Bold,
+//                                color = MaterialTheme.colorScheme.onPrimary
+//                            )
+//                        }
+//                    }
+//                }
+//
+//                // Botón Pasaje Largo
+//                Button(
+//                    onClick = { onPagar(pasajeLargo) },
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(80.dp),
+//                    enabled = !isProcessing && saldoActual >= pasajeLargo,
+//                    colors = ButtonDefaults.buttonColors(
+//                        containerColor = MaterialTheme.colorScheme.secondary
+//                    )
+//                ) {
+//                    if (isProcessing) {
+//                        CircularProgressIndicator(
+//                            modifier = Modifier.size(24.dp),
+//                            strokeWidth = 2.dp,
+//                            color = MaterialTheme.colorScheme.onSecondary
+//                        )
+//                    } else {
+//                        Column(
+//                            horizontalAlignment = Alignment.CenterHorizontally
+//                        ) {
+//                            Text(
+//                                text = "PASAJE LARGO",
+//                                style = MaterialTheme.typography.titleMedium,
+//                                color = MaterialTheme.colorScheme.onSecondary
+//                            )
+//                            Text(
+//                                text = "Bs. $pasajeLargo",
+//                                style = MaterialTheme.typography.titleLarge,
+//                                fontWeight = FontWeight.Bold,
+//                                color = MaterialTheme.colorScheme.onSecondary
+//                            )
+//                        }
+//                    }
+//                }
+//            }
+//
+//            // Mensajes del sistema
+//            if (mensaje.isNotEmpty()) {
+//                Card(
+//                    modifier = Modifier.fillMaxWidth(),
+//                    colors = CardDefaults.cardColors(
+//                        containerColor = if (mensaje.contains("exitoso"))
+//                            MaterialTheme.colorScheme.primaryContainer
+//                        else
+//                            MaterialTheme.colorScheme.errorContainer
+//                    )
+//                ) {
+//                    Text(
+//                        text = mensaje,
+//                        modifier = Modifier.padding(16.dp),
+//                        color = if (mensaje.contains("exitoso"))
+//                            MaterialTheme.colorScheme.onPrimaryContainer
+//                        else
+//                            MaterialTheme.colorScheme.onErrorContainer,
+//                        textAlign = TextAlign.Center
+//                    )
+//                }
+//            }
+//
+//            // Instrucciones
+//            Card(
+//                modifier = Modifier.fillMaxWidth(),
+//                colors = CardDefaults.cardColors(
+//                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+//                )
+//            ) {
+//                Column(
+//                    modifier = Modifier.padding(16.dp),
+//                    verticalArrangement = Arrangement.spacedBy(6.dp)
+//                ) {
+//                    Text(
+//                        text = "Instrucciones:",
+//                        style = MaterialTheme.typography.titleMedium,
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant
+//                    )
+//                    Text("1. Selecciona el tipo de pasaje")
+//                    Text("2. Acerca tu teléfono a la etiqueta NFC")
+//                    Text("3. El pago se procesará automáticamente")
+//                }
+//            }
+//        }
+//    }
+//}

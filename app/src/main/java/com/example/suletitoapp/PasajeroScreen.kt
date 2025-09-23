@@ -185,7 +185,7 @@ fun PasajeroScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Pagar con NFC",
+                text = "Pagar con Sueltito",
                 modifier = Modifier.padding(start = 8.dp)
             )
         }
