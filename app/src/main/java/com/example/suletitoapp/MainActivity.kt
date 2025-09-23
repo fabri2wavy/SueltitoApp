@@ -53,24 +53,9 @@ import java.util.concurrent.TimeUnit
 import com.google.firebase.database.FirebaseDatabase
 import com.example.suletitoapp.model.Usuario
 import androidx.compose.runtime.LaunchedEffect
-import java.util.Locale
-import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.LocalTaxi
-import androidx.compose.material3.Switch
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Icon
-import androidx.compose.ui.text.style.TextAlign
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 
 
 class MainActivity : ComponentActivity() {
@@ -101,8 +86,10 @@ class MainActivity : ComponentActivity() {
     private val currentPaymentAmount = mutableStateOf(0.0)
     private val currentConductorData = mutableStateOf<Pair<String, String>?>(null)
 
-    private val saldoActualizado = mutableStateOf(0.0)
-    private val debeActualizarSaldo = mutableStateOf(false)
+    // Variables para saldo en tiempo real
+    private val saldoEnTiempoReal = mutableStateOf(0.0)
+    private val usuarioActual = mutableStateOf<Usuario?>(null)
+    private var saldoListener: ValueEventListener? = null
 
     //Inicio del Programa
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -118,8 +105,31 @@ class MainActivity : ComponentActivity() {
         setContent {
             SuletitoAppTheme {
                 val pantallaActual = remember { mutableStateOf("login") }
-                val usuarioActual = remember { mutableStateOf<Usuario?>(null) }
+                val usuarioConSaldoActualizado = remember { mutableStateOf<Usuario?>(null) }
 
+                LaunchedEffect(Unit) {
+                    val userId = auth.currentUser?.uid
+                    if (userId != null) {
+                        obtenerDatosUsuario(
+                            userId = userId,
+                            onSuccess = { usuario ->
+                                usuarioActual.value = usuario
+                                usuarioConSaldoActualizado.value = usuario
+                                pantallaActual.value = "principal"
+                                iniciarEscuchaSaldoTiempoReal(userId)
+                            },
+                            onUserNotFound = {
+                                pantallaActual.value = "registro"
+                            }
+                        )
+                    }
+                }
+                // Escuchar cambios en el saldo y actualizar el usuario
+                LaunchedEffect(saldoEnTiempoReal.value) {
+                    usuarioActual.value?.let { usuario ->
+                        usuarioConSaldoActualizado.value = usuario.copy(saldo = saldoEnTiempoReal.value)
+                    }
+                }
                 when (pantallaActual.value) {
 
                     "login" -> LoginScreen(
@@ -127,7 +137,9 @@ class MainActivity : ComponentActivity() {
                             // Establecer callbacks antes de enviar código
                             currentOnSuccess = { usuario ->
                                 usuarioActual.value = usuario
+                                usuarioConSaldoActualizado.value = usuario
                                 pantallaActual.value = "principal"
+                                iniciarEscuchaSaldoTiempoReal(auth.currentUser?.uid ?: "")
                             }
                             currentOnNeedRegistration = {
                                 pantallaActual.value = "registro"
@@ -155,16 +167,17 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                     "principal" -> {
-                        usuarioActual.value?.let { usuario ->
+                        usuarioConSaldoActualizado.value?.let { usuario ->
                             when (usuario.rol) {
                                 "Chofer" -> ConductorScreen(
                                     usuario.nombres,
                                     usuario.saldo,
                                     onCerrarSesion = {
+                                        detenerEscuchaSaldoTiempoReal()
                                         cerrarSesion()
                                         usuarioActual.value = null
+                                        usuarioConSaldoActualizado.value = null
                                         pantallaActual.value = "login"
-
                                     },
                                     onConfigurarNFC = {
                                         pantallaActual.value = "nfc_conductor"
@@ -177,8 +190,10 @@ class MainActivity : ComponentActivity() {
                                     usuario.nombres,
                                     usuario.saldo,
                                     onCerrarSesion = {
+                                        detenerEscuchaSaldoTiempoReal()
                                         cerrarSesion()
                                         usuarioActual.value = null
+                                        usuarioConSaldoActualizado.value = null
                                         pantallaActual.value = "login"
                                     },
                                     onRecargarSaldo = {
@@ -201,7 +216,6 @@ class MainActivity : ComponentActivity() {
                                 saldoActual = usuario.saldo,
                                 onRecargar = { monto ->
                                     recargarSaldo(monto)
-                                    usuarioActual.value = usuario.copy(saldo = usuario.saldo + monto)
                                     // Volver a la pantalla principal
                                     pantallaActual.value = "principal"
                                 },
@@ -213,7 +227,7 @@ class MainActivity : ComponentActivity() {
                         } ?: Text("Error:no encontrado")
                     }
                     "nfc_conductor" -> {
-                        usuarioActual.value?.let { usuario ->
+                        usuarioConSaldoActualizado.value?.let { usuario ->
                             NFCConductorScreen(
                                 conductorNombre = "${usuario.nombres} ${usuario.apellidos}",
                                 onEscribirNFC = {
@@ -246,12 +260,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     "minibus_pago" -> {
-                        usuarioActual.value?.let { usuario ->
-                            if (debeActualizarSaldo.value) {
-                                usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
-                                debeActualizarSaldo.value = false
-                            }
-
+                        usuarioConSaldoActualizado.value?.let { usuario ->
                             MinibusPaymentScreen(
                                 pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
                                 saldoActual = usuario.saldo,
@@ -271,12 +280,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     "trufi_pago" -> {
-                        usuarioActual.value?.let { usuario ->
-                            if (debeActualizarSaldo.value) {
-                                usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
-                                debeActualizarSaldo.value = false
-                            }
-
+                        usuarioConSaldoActualizado.value?.let { usuario ->
                             TrufiPaymentScreen(
                                 pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
                                 saldoActual = usuario.saldo,
@@ -296,13 +300,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     "taxi_pago" -> {
-                        usuarioActual.value?.let { usuario ->
-                            if (debeActualizarSaldo.value) {
-                                usuarioActual.value = usuario.copy(saldo = saldoActualizado.value)
-                                debeActualizarSaldo.value = false
-                            }
-
-                            // Usar la pantalla original NFCPagoScreen para taxi
+                        usuarioConSaldoActualizado.value?.let { usuario ->
                             NFCPagoScreen(
                                 pasajeroNombre = "${usuario.nombres} ${usuario.apellidos}",
                                 saldoActual = usuario.saldo,
@@ -353,7 +351,72 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun setupNFC() {
+    private fun iniciarEscuchaSaldoTiempoReal(userId: String) {
+        if (userId.isEmpty()) return
+
+        val db = FirebaseDatabase.getInstance().reference
+
+        // Detener listener anterior si existe
+        detenerEscuchaSaldoTiempoReal()
+
+        saldoListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val nuevoSaldo = snapshot.getValue(Double::class.java) ?: 0.0
+                Log.d("SALDO_TIEMPO_REAL", "Saldo actualizado: $nuevoSaldo")
+
+                // Actualizar el estado del saldo
+                saldoEnTiempoReal.value = nuevoSaldo
+
+                // Mostrar notificación si cambió el saldo
+                if (saldoEnTiempoReal.value != nuevoSaldo) {
+                    runOnUiThread {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Saldo actualizado: Bs. $nuevoSaldo",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("SALDO_TIEMPO_REAL", "Error al escuchar saldo: ${error.message}")
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Error al sincronizar saldo",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+        // Agregar el listener a la referencia del saldo del usuario
+        db.child("usuarios").child(userId).child("saldo")
+            .addValueEventListener(saldoListener!!)
+
+        Log.d("SALDO_TIEMPO_REAL", "Listener de saldo iniciado para usuario: $userId")
+    }
+
+    // NUEVA FUNCIÓN: Detener escucha del saldo
+    private fun detenerEscuchaSaldoTiempoReal() {
+        val userId = auth.currentUser?.uid
+        if (userId != null && saldoListener != null) {
+            val db = FirebaseDatabase.getInstance().reference
+            db.child("usuarios").child(userId).child("saldo")
+                .removeEventListener(saldoListener!!)
+
+            saldoListener = null
+            Log.d("SALDO_TIEMPO_REAL", "Listener de saldo detenido")
+        }
+    }
+
+    // Detener listeners cuando la actividad se destruye
+    override fun onDestroy() {
+        super.onDestroy()
+        detenerEscuchaSaldoTiempoReal()
+    }
+
+        private fun setupNFC() {
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
 
         if (nfcAdapter == null) {
@@ -545,8 +608,6 @@ class MainActivity : ComponentActivity() {
 
                                     runOnUiThread{
 
-                                        actualizarSaldoUsuario(nuevoSaldoPasajero)
-
                                         // Actualizar estado
                                         nfcMessage.value = "¡Pago exitoso! Bs. $monto"
                                         isProcessingPayment.value = false
@@ -611,11 +672,6 @@ class MainActivity : ComponentActivity() {
             .addOnFailureListener {
                 Log.e("PAGO", "Error al crear registro de pago: ${it.message}")
             }
-    }
-
-    private fun actualizarSaldoUsuario(nuevoSaldo: Double) {
-        saldoActualizado.value = nuevoSaldo
-        debeActualizarSaldo.value = true
     }
 
     private fun enviarNotificacionConductor(conductorId: String, pasajeroNombre: String, monto: Double) {
@@ -865,6 +921,9 @@ class MainActivity : ComponentActivity() {
         currentOnSuccess = null
         currentOnNeedRegistration = null
 
+        //Limpiar saldos en tiempo real
+        saldoEnTiempoReal.value = 0.0
+
         Toast.makeText(this, "Sesión cerrada correctamente", Toast.LENGTH_SHORT).show()
         Log.d("AUTH", "Sesión cerrada por el usuario")
     }
@@ -1004,222 +1063,3 @@ fun LoginScreen(
         }
     }
 }
-
-//@Composable
-//fun MinibusPaymentScreen(
-//    pasajeroNombre: String,
-//    saldoActual: Double,
-//    onPagar: (Double) -> Unit,
-//    onCancelar: () -> Unit,
-//    isProcessing: Boolean = false,
-//    mensaje: String = ""
-//) {
-//    var tarifaPreferencial by remember { mutableStateOf(false) }
-//
-//    // Tarifas normales y preferenciales
-//    val pasajeCorto = if (tarifaPreferencial) 2.0 else 2.4
-//    val pasajeLargo = if (tarifaPreferencial) 2.60 else 3.0
-//
-//    Scaffold(
-//        topBar = {
-//            CenterAlignedTopAppBar(
-//                title = { Text("Pago Minibus", style = MaterialTheme.typography.titleLarge) },
-//                navigationIcon = {
-//                    IconButton(onClick = onCancelar) {
-//                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-//                    }
-//                }
-//            )
-//        }
-//    ) { padding ->
-//        Column(
-//            modifier = Modifier
-//                .padding(padding)
-//                .padding(24.dp)
-//                .fillMaxSize(),
-//            verticalArrangement = Arrangement.spacedBy(20.dp),
-//            horizontalAlignment = Alignment.CenterHorizontally
-//        ) {
-//
-//            // Información del pasajero
-//            Card(
-//                modifier = Modifier.fillMaxWidth(),
-//                elevation = CardDefaults.cardElevation(4.dp)
-//            ) {
-//                Column(
-//                    modifier = Modifier.padding(16.dp)
-//                ) {
-//                    Text(
-//                        text = "Pasajero: $pasajeroNombre",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        color = MaterialTheme.colorScheme.onSurfaceVariant
-//                    )
-//                    Spacer(modifier = Modifier.height(8.dp))
-//                    Text(
-//                        text = "Saldo disponible: Bs. $saldoActual",
-//                        style = MaterialTheme.typography.titleMedium.copy(
-//                            color = MaterialTheme.colorScheme.primary
-//                        )
-//                    )
-//                }
-//            }
-//
-//            // Switch para tarifa preferencial
-//            Card(
-//                modifier = Modifier.fillMaxWidth(),
-//                colors = CardDefaults.cardColors(
-//                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-//                )
-//            ) {
-//                Row(
-//                    modifier = Modifier
-//                        .padding(16.dp)
-//                        .fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween,
-//                    verticalAlignment = Alignment.CenterVertically
-//                ) {
-//                    Column {
-//                        Text(
-//                            text = "Tarifa Preferencial",
-//                            style = MaterialTheme.typography.titleMedium,
-//                            color = MaterialTheme.colorScheme.onSurfaceVariant
-//                        )
-//                        Text(
-//                            text = if (tarifaPreferencial) "Activada" else "Desactivada",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            color = MaterialTheme.colorScheme.onSurfaceVariant
-//                        )
-//                    }
-//                    Switch(
-//                        checked = tarifaPreferencial,
-//                        onCheckedChange = { tarifaPreferencial = it },
-//                        enabled = !isProcessing
-//                    )
-//                }
-//            }
-//
-//            // Botones de pago
-//            Column(
-//                modifier = Modifier.fillMaxWidth(),
-//                verticalArrangement = Arrangement.spacedBy(12.dp)
-//            ) {
-//                // Botón Pasaje Corto
-//                Button(
-//                    onClick = { onPagar(pasajeCorto) },
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(80.dp),
-//                    enabled = !isProcessing && saldoActual >= pasajeCorto,
-//                    colors = ButtonDefaults.buttonColors(
-//                        containerColor = MaterialTheme.colorScheme.primary
-//                    )
-//                ) {
-//                    if (isProcessing) {
-//                        CircularProgressIndicator(
-//                            modifier = Modifier.size(24.dp),
-//                            strokeWidth = 2.dp,
-//                            color = MaterialTheme.colorScheme.onPrimary
-//                        )
-//                    } else {
-//                        Column(
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Text(
-//                                text = "PASAJE CORTO",
-//                                style = MaterialTheme.typography.titleMedium,
-//                                color = MaterialTheme.colorScheme.onPrimary
-//                            )
-//                            Text(
-//                                text = "Bs. $pasajeCorto",
-//                                style = MaterialTheme.typography.titleLarge,
-//                                fontWeight = FontWeight.Bold,
-//                                color = MaterialTheme.colorScheme.onPrimary
-//                            )
-//                        }
-//                    }
-//                }
-//
-//                // Botón Pasaje Largo
-//                Button(
-//                    onClick = { onPagar(pasajeLargo) },
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(80.dp),
-//                    enabled = !isProcessing && saldoActual >= pasajeLargo,
-//                    colors = ButtonDefaults.buttonColors(
-//                        containerColor = MaterialTheme.colorScheme.secondary
-//                    )
-//                ) {
-//                    if (isProcessing) {
-//                        CircularProgressIndicator(
-//                            modifier = Modifier.size(24.dp),
-//                            strokeWidth = 2.dp,
-//                            color = MaterialTheme.colorScheme.onSecondary
-//                        )
-//                    } else {
-//                        Column(
-//                            horizontalAlignment = Alignment.CenterHorizontally
-//                        ) {
-//                            Text(
-//                                text = "PASAJE LARGO",
-//                                style = MaterialTheme.typography.titleMedium,
-//                                color = MaterialTheme.colorScheme.onSecondary
-//                            )
-//                            Text(
-//                                text = "Bs. $pasajeLargo",
-//                                style = MaterialTheme.typography.titleLarge,
-//                                fontWeight = FontWeight.Bold,
-//                                color = MaterialTheme.colorScheme.onSecondary
-//                            )
-//                        }
-//                    }
-//                }
-//            }
-//
-//            // Mensajes del sistema
-//            if (mensaje.isNotEmpty()) {
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    colors = CardDefaults.cardColors(
-//                        containerColor = if (mensaje.contains("exitoso"))
-//                            MaterialTheme.colorScheme.primaryContainer
-//                        else
-//                            MaterialTheme.colorScheme.errorContainer
-//                    )
-//                ) {
-//                    Text(
-//                        text = mensaje,
-//                        modifier = Modifier.padding(16.dp),
-//                        color = if (mensaje.contains("exitoso"))
-//                            MaterialTheme.colorScheme.onPrimaryContainer
-//                        else
-//                            MaterialTheme.colorScheme.onErrorContainer,
-//                        textAlign = TextAlign.Center
-//                    )
-//                }
-//            }
-//
-//            // Instrucciones
-//            Card(
-//                modifier = Modifier.fillMaxWidth(),
-//                colors = CardDefaults.cardColors(
-//                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-//                )
-//            ) {
-//                Column(
-//                    modifier = Modifier.padding(16.dp),
-//                    verticalArrangement = Arrangement.spacedBy(6.dp)
-//                ) {
-//                    Text(
-//                        text = "Instrucciones:",
-//                        style = MaterialTheme.typography.titleMedium,
-//                        color = MaterialTheme.colorScheme.onSurfaceVariant
-//                    )
-//                    Text("1. Selecciona el tipo de pasaje")
-//                    Text("2. Acerca tu teléfono a la etiqueta NFC")
-//                    Text("3. El pago se procesará automáticamente")
-//                }
-//            }
-//        }
-//    }
-//}
