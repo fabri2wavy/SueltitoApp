@@ -58,7 +58,7 @@ fun RecargaSaldoScreen(
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Bs. $saldoActual",
+                    text = "Bs. ${String.format("%.2f", saldoActual)}",
                     fontSize = 38.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary

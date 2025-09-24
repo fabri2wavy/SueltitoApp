@@ -88,7 +88,7 @@ fun TrufiPaymentScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Saldo disponible: Bs. $saldoActual",
+                        text = "Saldo disponible: Bs. ${String.format("%.2f", saldoActual)}",
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = MaterialTheme.colorScheme.primary
                         )
