@@ -28,7 +28,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -56,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.ValueEventListener
+import androidx.compose.ui.text.font.FontWeight
 
 
 class MainActivity : ComponentActivity() {
@@ -988,12 +992,33 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        Text(
+            text = "Iniciar Sesión",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+
         //Campo para ingresar el numero
         OutlinedTextField(
             value = phoneNumber,
-            onValueChange = { phoneNumber = it },
+            onValueChange = { newValue ->
+                // Solo permitir números y limitar a 8 dígitos
+                    if (newValue.all { it.isDigit() } && newValue.length <= 8) {
+                    phoneNumber = newValue}
+            },
             label = { Text("Número de teléfono") },
-            placeholder = { Text("+59171234567") },
+            placeholder = { Text("71234567") },
+            leadingIcon = {
+                Text(
+                    text = "+591",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            },
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
@@ -1003,7 +1028,10 @@ fun LoginScreen(
 
         //Boton
         Button(
-            onClick = { onSendCode(phoneNumber) },
+            onClick = {
+                val fullNumber = "+591$phoneNumber"
+                onSendCode(fullNumber)
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading && phoneNumber.isNotBlank()
         ) {
@@ -1018,41 +1046,66 @@ fun LoginScreen(
 
         //Campo para escribir el codigo
         if (codigoEnviado) {
-            OutlinedTextField(
-                value = verificationCode,
-                onValueChange = { verificationCode = it },
-                label = { Text("Código de verificación") },
-                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
-            )
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ){
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ){
+                    Text(
+                        text = "Código enviado a +591$phoneNumber",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    OutlinedTextField(
+                        value = verificationCode,
+                        onValueChange = { verificationCode = it },
+                        label = { Text("Código de verificación") },
+                        keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                onClick = { onVerifyCode(verificationCode) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading && verificationCode.isNotBlank()
-            ) {
-                if (isLoading && codigoEnviado) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onVerifyCode(verificationCode) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading && verificationCode.isNotBlank()
+                    ) {
+                        if (isLoading && codigoEnviado) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text("Verificar código")
+                    }
                 }
-                Text("Verificar código")
             }
         }
 
         // Mostrar mensaje de error si existe
         if (mensajeError.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = mensajeError,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(8.dp)
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ){
+                Text(
+                    text = mensajeError,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         TextButton(
             onClick = { onCambiarAPantallaRegistro() },

@@ -127,7 +127,7 @@ fun HistorialPasajeroScreen(
                         ) {
                             Text("Monto total:")
                             Text(
-                                "Bs. ${pagos.sumOf { it.monto }}",
+                                "Bs. ${String.format("%.2f", pagos.sumOf { it.monto })}",
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )

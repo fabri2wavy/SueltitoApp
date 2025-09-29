@@ -128,7 +128,7 @@ fun HistorialConductorScreen(
                         ) {
                             Text("Monto total:")
                             Text(
-                                "Bs. ${cobros.sumOf { it.monto }}",
+                                "Bs. ${String.format("%.2f", cobros.sumOf { it.monto })}",
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF4CAF50)
                             )

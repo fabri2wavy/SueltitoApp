@@ -39,6 +39,7 @@ fun MinibusPaymentScreen(
     var totalAcumulado by remember { mutableStateOf(0.0) }
     var contadorCorto by remember { mutableStateOf(0) }
     var contadorLargo by remember { mutableStateOf(0) }
+    val esNocturno = remember { TarifasManager.esHorarioNocturno() }
 
     // Tarifas normales y preferenciales
     val pasajeCorto = if (tarifaPreferencial) 2.0 else 2.4

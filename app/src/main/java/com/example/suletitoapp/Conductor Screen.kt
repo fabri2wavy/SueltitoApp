@@ -111,7 +111,7 @@ fun ConductorScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Bs. $saldo",
+                        text = "Bs. ${String.format("%.2f", saldo)}",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
