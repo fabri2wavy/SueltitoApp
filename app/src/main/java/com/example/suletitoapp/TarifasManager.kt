@@ -6,7 +6,7 @@ object TarifasManager {
     fun esHorarioNocturno(): Boolean {
         val calendar = Calendar.getInstance()
         val hora = calendar.get(Calendar.HOUR_OF_DAY)
-        return hora >= 21 || hora < 6 // De 9 PM a 6 AM
+        return hora >= 21 || hora < 5 // De 9 PM a 5 AM
     }
 
     object Minibus {

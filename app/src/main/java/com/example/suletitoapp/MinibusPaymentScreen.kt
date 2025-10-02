@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 // Iconos
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.WbSunny
 
 // Para los botones con colores personalizados
 import androidx.compose.material3.ButtonDefaults
@@ -42,8 +44,16 @@ fun MinibusPaymentScreen(
     val esNocturno = remember { TarifasManager.esHorarioNocturno() }
 
     // Tarifas normales y preferenciales
-    val pasajeCorto = if (tarifaPreferencial) 2.0 else 2.4
-    val pasajeLargo = if (tarifaPreferencial) 2.60 else 3.0
+    val pasajeCorto = if (tarifaPreferencial)
+        TarifasManager.Minibus.PASAJE_CORTO_PREFERENCIAL
+    else
+        TarifasManager.Minibus.getPasajeCorto()
+
+    val pasajeLargo = if (tarifaPreferencial)
+        TarifasManager.Minibus.PASAJE_LARGO_PREFERENCIAL
+    else
+        TarifasManager.Minibus.getPasajeLargo()
+
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -67,6 +77,37 @@ fun MinibusPaymentScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            // Indicador de horario
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (esNocturno)
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (esNocturno) Icons.Default.DarkMode else Icons.Default.WbSunny,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = TarifasManager.getHorarioTexto(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
 
             // Información del pasajero
             Card(
@@ -158,12 +199,24 @@ fun MinibusPaymentScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
-                        if (contadorCorto > 0) {
-                            Text(
-                                text = "Agregado: $contadorCorto",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ){
+                            if (contadorCorto > 0) {
+                                Text(
+                                    text = "Agregado: $contadorCorto",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
+                            if (!tarifaPreferencial && esNocturno && contadorCorto == 0) {
+                                Text(
+                                    text = "Nocturna",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                )
+                            }
                         }
                     }
                 }
@@ -196,12 +249,24 @@ fun MinibusPaymentScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondary
                         )
-                        if (contadorLargo > 0) {
-                            Text(
-                                text = "Agregado: $contadorLargo",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondary
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ){
+                            if (contadorLargo > 0) {
+                                Text(
+                                    text = "Agregado: $contadorLargo",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondary
+                                )
+                            }
+                            if (!tarifaPreferencial && esNocturno && contadorLargo == 0) {
+                                Text(
+                                    text = "Nocturna",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.8f)
+                                )
+                            }
                         }
                     }
                 }
@@ -246,7 +311,7 @@ fun MinibusPaymentScreen(
                             }
                         }
 
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),

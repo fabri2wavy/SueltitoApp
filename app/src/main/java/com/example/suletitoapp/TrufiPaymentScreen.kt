@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 // Iconos
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.WbSunny
 
 // Para los botones con colores personalizados
 import androidx.compose.material3.ButtonDefaults
@@ -39,16 +41,26 @@ fun TrufiPaymentScreen(
     var tarifaPreferencial by remember { mutableStateOf(false) }
     var totalAcumulado by remember { mutableStateOf(0.0) }
     var contadores by remember { mutableStateOf(listOf(0, 0, 0, 0)) }
+    val esNocturno = remember { TarifasManager.esHorarioNocturno() }
 
     // Tarifas normales y preferenciales para trufi
     val tarifas = if (tarifaPreferencial) {
-        listOf(2.0, 2.5, 3.0, 3.5)
+        listOf(
+            TarifasManager.Trufi.ZONAL_PREFERENCIAL,
+            TarifasManager.Trufi.CORTO_PREFERENCIAL,
+            TarifasManager.Trufi.LARGO_PREFERENCIAL,
+            TarifasManager.Trufi.EXTRA_LARGO_PREFERENCIAL
+        )
     } else {
-        listOf(2.5, 2.80, 3.30, 3.50)
+        listOf(
+            TarifasManager.Trufi.getZonal(),
+            TarifasManager.Trufi.getCorto(),
+            TarifasManager.Trufi.getLargo(),
+            TarifasManager.Trufi.getExtraLargo()
+        )
     }
 
     val zonas = listOf("Zonal", "Corto", "Largo", "Extra Largo")
-
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -76,22 +88,30 @@ fun TrufiPaymentScreen(
             // Información del pasajero
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(4.dp)
+                colors = CardDefaults.cardColors(
+                    containerColor = if (esNocturno)
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer
+                )
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Pasajero: $pasajeroNombre",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ){
+                    Icon(
+                        imageVector = if (esNocturno) Icons.Default.DarkMode else Icons.Default.WbSunny,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Saldo disponible: Bs. ${String.format("%.2f", saldoActual)}",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        text = TarifasManager.getHorarioTexto(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -124,7 +144,28 @@ fun TrufiPaymentScreen(
                     }
                     Switch(
                         checked = tarifaPreferencial,
-                        onCheckedChange = { tarifaPreferencial = it },
+                        onCheckedChange = {
+                            tarifaPreferencial = it
+                            // Recalcular total con nuevas tarifas
+                            val nuevasTarifas = if (it) {
+                                listOf(
+                                    TarifasManager.Trufi.ZONAL_PREFERENCIAL,
+                                    TarifasManager.Trufi.CORTO_PREFERENCIAL,
+                                    TarifasManager.Trufi.LARGO_PREFERENCIAL,
+                                    TarifasManager.Trufi.EXTRA_LARGO_PREFERENCIAL
+                                )
+                            } else {
+                                listOf(
+                                    TarifasManager.Trufi.getZonal(),
+                                    TarifasManager.Trufi.getCorto(),
+                                    TarifasManager.Trufi.getLargo(),
+                                    TarifasManager.Trufi.getExtraLargo()
+                                )
+                            }
+                            totalAcumulado = contadores.foldIndexed(0.0) { index, acc, count ->
+                                acc + (count * nuevasTarifas[index])
+                            }
+                        },
                         enabled = !isProcessing
                     )
                 }
@@ -170,17 +211,34 @@ fun TrufiPaymentScreen(
                                         else -> MaterialTheme.colorScheme.onPrimaryContainer
                                     }
                                 )
-                                if (contadores[index] > 0) {
-                                    Text(
-                                        text = "Agregado: ${contadores[index]}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = when (index) {
-                                            0 -> MaterialTheme.colorScheme.onPrimary
-                                            1 -> MaterialTheme.colorScheme.onSecondary
-                                            2 -> MaterialTheme.colorScheme.onTertiary
-                                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        }
-                                    )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ){
+                                    if (contadores[index] > 0) {
+                                        Text(
+                                            text = "Agregado: ${contadores[index]}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = when (index) {
+                                                0 -> MaterialTheme.colorScheme.onPrimary
+                                                1 -> MaterialTheme.colorScheme.onSecondary
+                                                2 -> MaterialTheme.colorScheme.onTertiary
+                                                else -> MaterialTheme.colorScheme.onPrimaryContainer
+                                            }
+                                        )
+                                    }
+                                    if (!tarifaPreferencial && esNocturno && contadores[index] == 0) {
+                                        Text(
+                                            text = "Nocturna",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = when (index) {
+                                                0 -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                                1 -> MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.8f)
+                                                2 -> MaterialTheme.colorScheme.onTertiary.copy(alpha = 0.8f)
+                                                else -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                             Text(
@@ -230,7 +288,7 @@ fun TrufiPaymentScreen(
                             }
                         }
 
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
