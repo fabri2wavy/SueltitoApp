@@ -121,16 +121,6 @@ fun ConductorScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Otros botones secundarios
-            Button(
-                onClick = { /* TODO: Implementar retirar dinero */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Retirar dinero")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             Button(
                 onClick = { onVerHistorial() },
                 modifier = Modifier.fillMaxWidth()
@@ -139,15 +129,6 @@ fun ConductorScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { /* TODO: Implementar configuración */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Configuración")
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedButton(
                 onClick = { onCerrarSesion() },
